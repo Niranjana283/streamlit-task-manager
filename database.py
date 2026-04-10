@@ -29,6 +29,20 @@ CREATE TABLE IF NOT EXISTS tasks (
     FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 )
 """)
+# ---------------- ATTENDANCE TABLE ----------------
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS attendance (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    date TEXT,
+    check_in TEXT,
+    check_out TEXT,
+    status TEXT,
+    leave_reason TEXT,
+    FOREIGN KEY(user_id) REFERENCES users(id)
+)
+""")
+
 
 # ---------------- ADD MISSING COLUMNS (SAFE UPDATE) ----------------
 def add_column_if_not_exists(column, definition):
@@ -46,5 +60,10 @@ add_column_if_not_exists("start_date", "TEXT")
 add_column_if_not_exists("end_date", "TEXT")
 add_column_if_not_exists("completed", "INTEGER DEFAULT 0")
 add_column_if_not_exists("completed_at", "TEXT")
+add_column_if_not_exists("time_in", "TEXT")
+add_column_if_not_exists("time_out", "TEXT")
+add_column_if_not_exists("status", "TEXT")       # Present / Leave
+add_column_if_not_exists("leave_reason", "TEXT")
+
 
 conn.commit()
