@@ -66,14 +66,17 @@ if not all_tasks:
     st.stop()
 
 # Table header
-h1,h2,h3,h4,h5,h6,h7 = st.columns([1.6,2.2,2.2,1.2,1.4,1.4,1.4])
-for col, label in zip([h1,h2,h3,h4,h5,h6,h7],
-    ["👤 User","📌 Main Task","📝 Sub Task","🔥 Priority","📅 Start","📅 End","Status"]):
-    col.markdown(f"<p style='color:#8b949e;font-size:.72rem;font-weight:600;"
-                 f"text-transform:uppercase;letter-spacing:.7px;margin:0;'>{label}</p>",
-                 unsafe_allow_html=True)
-
-st.markdown("<hr style='margin:8px 0 4px;border-color:#21262d;'>", unsafe_allow_html=True)
+html = "<div style='overflow-x:auto; margin-top: 10px; padding-bottom: 10px;'>"
+html += "<table style='width:100%; border-collapse:collapse; text-align:left; min-width: 800px;'>"
+html += "<thead><tr style='border-bottom:1px solid #21262d;'>"
+html += "<th style='padding:8px 8px 12px 8px; color:#8b949e; font-size:.72rem; text-transform:uppercase; letter-spacing:.7px; font-weight:600;'>👤 User</th>"
+html += "<th style='padding:8px 8px 12px 8px; color:#8b949e; font-size:.72rem; text-transform:uppercase; letter-spacing:.7px; font-weight:600;'>📌 Main Task</th>"
+html += "<th style='padding:8px 8px 12px 8px; color:#8b949e; font-size:.72rem; text-transform:uppercase; letter-spacing:.7px; font-weight:600;'>📝 Sub Task</th>"
+html += "<th style='padding:8px 8px 12px 8px; color:#8b949e; font-size:.72rem; text-transform:uppercase; letter-spacing:.7px; font-weight:600;'>🔥 Priority</th>"
+html += "<th style='padding:8px 8px 12px 8px; color:#8b949e; font-size:.72rem; text-transform:uppercase; letter-spacing:.7px; font-weight:600;'>📅 Start</th>"
+html += "<th style='padding:8px 8px 12px 8px; color:#8b949e; font-size:.72rem; text-transform:uppercase; letter-spacing:.7px; font-weight:600;'>📅 End</th>"
+html += "<th style='padding:8px 8px 12px 8px; color:#8b949e; font-size:.72rem; text-transform:uppercase; letter-spacing:.7px; font-weight:600;'>Status</th>"
+html += "</tr></thead><tbody>"
 
 filtered = 0
 for row in all_tasks:
@@ -87,16 +90,19 @@ for row in all_tasks:
     pcolor = PRIORITY_COLOR.get(prio, "#8b949e")
     scolor = "#3fb950" if done == 1 else "#d29922"
 
-    c1,c2,c3,c4,c5,c6,c7 = st.columns([1.6,2.2,2.2,1.2,1.4,1.4,1.4])
-    c1.markdown(f"<span style='color:#c9d1d9;font-weight:600;'>{name}</span>", unsafe_allow_html=True)
-    c2.markdown(f"<span style='color:#e6edf3;'>{main or '—'}</span>", unsafe_allow_html=True)
-    c3.markdown(f"<span style='color:#8b949e;'>{sub or '—'}</span>", unsafe_allow_html=True)
-    c4.markdown(badge(prio or "—", pcolor), unsafe_allow_html=True)
-    c5.markdown(f"<span style='color:#8b949e;font-size:.85rem;'>{start or '—'}</span>", unsafe_allow_html=True)
-    c6.markdown(f"<span style='color:#8b949e;font-size:.85rem;'>{end or '—'}</span>", unsafe_allow_html=True)
-    c7.markdown(badge(status, scolor), unsafe_allow_html=True)
+    html += "<tr style='border-bottom:1px solid #21262d;'>"
+    html += f"<td style='padding:12px 8px; color:#c9d1d9; font-weight:600;'>{name}</td>"
+    html += f"<td style='padding:12px 8px; color:#e6edf3;'>{main or '—'}</td>"
+    html += f"<td style='padding:12px 8px; color:#8b949e;'>{sub or '—'}</td>"
+    html += f"<td style='padding:12px 8px;'>{badge(prio or '—', pcolor)}</td>"
+    html += f"<td style='padding:12px 8px; color:#8b949e; font-size:.85rem;'>{start or '—'}</td>"
+    html += f"<td style='padding:12px 8px; color:#8b949e; font-size:.85rem;'>{end or '—'}</td>"
+    html += f"<td style='padding:12px 8px;'>{badge(status, scolor)}</td>"
+    html += "</tr>"
 
-    st.markdown("<hr style='margin:4px 0;border-color:#21262d;'>", unsafe_allow_html=True)
+html += "</tbody></table></div>"
+if filtered > 0:
+    st.markdown(html, unsafe_allow_html=True)
 
 if filtered == 0:
     st.info("No tasks match the selected filters.")

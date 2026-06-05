@@ -72,3 +72,4 @@ def add_column_if_missing(table, column, column_type):
 add_column_if_missing("users", "password", "TEXT")
 add_column_if_missing("users", "role", "TEXT DEFAULT 'user'")
 add_column_if_missing("users", "id_number", "TEXT")
+add_column_if_missing("tasks", "due_date", "TEXT")

@@ -17,6 +17,10 @@ user = st.session_state["user"]
 # =========================================================
 if user is None:
     st.markdown("""
+    <style>
+        [data-testid="collapsedControl"] { display: none; }
+        [data-testid="stSidebar"] { display: none; }
+    </style>
     <div style="text-align:center;margin-top:60px;margin-bottom:32px;">
         <span style="font-size:3rem;">⚡</span>
         <h1 style="color:#e6edf3;font-size:2rem;font-weight:800;margin:10px 0 4px;">TaskFlow Pro</h1>
@@ -155,9 +159,8 @@ with n5:
     if st.button("Go →", key="nav_attendance", use_container_width=True):
         st.switch_page("pages/5_Attendance.py")
 
-st.markdown("<br><br><hr>", unsafe_allow_html=True)
-col_out, _ = st.columns([1, 5])
-with col_out:
-    if st.button("🚪 Logout", use_container_width=True):
+with st.sidebar:
+    st.markdown("<br><br><hr>", unsafe_allow_html=True)
+    if st.button("🚪 Logout", key="dash_logout", use_container_width=True):
         st.session_state["user"] = None
         st.rerun()

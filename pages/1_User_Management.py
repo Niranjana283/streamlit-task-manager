@@ -18,14 +18,15 @@ is_admin = user["role"] == "admin"
 if is_admin:
     section_header("Create New User")
 
-    with st.form("add_user", clear_on_submit=True):
-        col_a, col_b = st.columns(2)
-        name      = col_a.text_input("Username", placeholder="e.g. john_doe")
-        id_number = col_b.text_input("Employee ID", placeholder="e.g. EMP-001")
-        col_c, col_d = st.columns(2)
-        password  = col_c.text_input("Password", type="password", placeholder="••••••••")
-        role      = col_d.selectbox("Role", ["user", "admin"])
-        submitted = st.form_submit_button("➕ Create User", use_container_width=True)
+    with st.expander("➕ Create New User"):
+        with st.form("add_user", clear_on_submit=True):
+            col_a, col_b = st.columns(2)
+            name      = col_a.text_input("Username", placeholder="e.g. john_doe")
+            id_number = col_b.text_input("Employee ID", placeholder="e.g. EMP-001")
+            col_c, col_d = st.columns(2)
+            password  = col_c.text_input("Password", type="password", placeholder="••••••••")
+            role      = col_d.selectbox("Role", ["user", "admin"])
+            submitted = st.form_submit_button("➕ Create User", use_container_width=True)
 
     if submitted:
         if not name.strip() or not password.strip():
@@ -69,7 +70,7 @@ if not all_users:
     st.stop()
 
 # Table header
-h1, h2, h3, h4, h5 = st.columns([1.2, 2.2, 2.2, 1.6, 2.8])
+h1, h2, h3, h4, h5 = st.columns([1, 2, 2, 0.5, 3.5])
 for col, label in zip([h1,h2,h3,h4,h5],
                       ["🆔 ID No.", "👤 Username", "✉️ Role", "", "⚙️ Actions"]):
     col.markdown(f"<p style='color:#8b949e;font-size:.75rem;font-weight:600;"
@@ -86,7 +87,7 @@ for u in all_users:
     role_color  = "#f78166" if urole == "admin" else "#3fb950"
     can_edit    = is_admin or is_own_row
 
-    c1, c2, c3, c4, c5 = st.columns([1.2, 2.2, 2.2, 1.6, 2.8])
+    c1, c2, c3, c4, c5 = st.columns([1, 2, 2, 0.5, 3.5])
     c1.markdown(f"<span style='color:#8b949e;font-size:.85rem;'>{display_id}</span>", unsafe_allow_html=True)
     c2.markdown(f"<span style='color:#e6edf3;font-weight:600;'>{uname}</span>"
                 + (" <span style='color:#58a6ff;font-size:.7rem;'>(you)</span>" if is_own_row else ""),
@@ -95,9 +96,10 @@ for u in all_users:
     c4.write("")  # spacer
 
     with c5:
+        action_col1, action_col2 = st.columns(2)
         if can_edit:
             edit_key = f"editing_{uid}"
-            if st.button("✏️ Edit", key=f"edit_btn_{uid}"):
+            if action_col1.button("✏️ Edit", key=f"edit_btn_{uid}", use_container_width=True):
                 st.session_state[edit_key] = True
 
             if st.session_state.get(edit_key):
@@ -136,7 +138,7 @@ for u in all_users:
                     st.rerun()
 
         if is_admin and not is_own_row:
-            if st.button("🗑 Delete", key=f"del_{uid}"):
+            if action_col2.button("🗑 Delete", key=f"del_{uid}", use_container_width=True):
                 st.session_state[f"confirm_delete_{uid}"] = True
 
             if st.session_state.get(f"confirm_delete_{uid}"):

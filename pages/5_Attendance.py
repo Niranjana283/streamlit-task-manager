@@ -16,29 +16,32 @@ page_header("🗓️", "Attendance", "Track and review daily check-in / check-ou
 # ── Holidays ──
 HOLIDAYS = ["2026-01-26", "2026-08-15", "2026-10-02"]
 
-# ── User filter ──
+# ── Filters ──
 users     = cursor.execute("SELECT id, name FROM users").fetchall()
 user_dict = {u[1]: u[0] for u in users}
 
-section_header("Filters")
-col_f1, col_f2 = st.columns(2)
-selected_user = col_f1.selectbox("👤 Filter by User", ["All"] + list(user_dict.keys()))
-view_mode     = col_f2.selectbox("🖥️ View Mode", ["Table", "Cards"])
+st.sidebar.markdown("### 🔍 Filters")
+selected_user = st.sidebar.selectbox("👤 Filter by User", ["All"] + list(user_dict.keys()))
+
+st.sidebar.markdown("---")
+st.sidebar.markdown("**📅 Date Range**")
+from_date = st.sidebar.date_input("From Date", pd.to_datetime("today").date() - pd.Timedelta(days=30))
+to_date   = st.sidebar.date_input("To Date", pd.to_datetime("today").date())
 
 # ── Fetch ──
 if selected_user == "All":
     records = cursor.execute("""
         SELECT u.name, t.due_date, t.time_in, t.time_out, t.leave_reason
         FROM tasks t JOIN users u ON t.user_id = u.id
-        WHERE t.sub_task IS NOT NULL ORDER BY t.due_date DESC
-    """).fetchall()
+        WHERE t.sub_task IS NOT NULL AND t.due_date BETWEEN ? AND ? ORDER BY t.due_date DESC
+    """, (str(from_date), str(to_date))).fetchall()
 else:
     uid = user_dict[selected_user]
     records = cursor.execute("""
         SELECT u.name, t.due_date, t.time_in, t.time_out, t.leave_reason
         FROM tasks t JOIN users u ON t.user_id = u.id
-        WHERE t.user_id=? AND t.sub_task IS NOT NULL ORDER BY t.due_date DESC
-    """, (uid,)).fetchall()
+        WHERE t.user_id=? AND t.sub_task IS NOT NULL AND t.due_date BETWEEN ? AND ? ORDER BY t.due_date DESC
+    """, (uid, str(from_date), str(to_date))).fetchall()
 
 if not records:
     st.info("No attendance records found.")
@@ -94,75 +97,47 @@ k4.markdown(kpi("🟡","Non-Working",    off_count,     "#8b949e"), unsafe_allow
 st.markdown("<br>", unsafe_allow_html=True)
 section_header("Records")
 
-# ── CARD VIEW ──
-if view_mode == "Cards":
-    for r in records:
-        name, date, time_in, time_out, leave_reason = r
-        day_name, status, color = resolve_status(date, time_in, time_out, leave_reason)
-
-        dur_text = ""
-        if time_in and time_out:
-            try:
-                t1  = datetime.strptime(time_in,  "%H:%M")
-                t2  = datetime.strptime(time_out, "%H:%M")
-                dur = (t2 - t1).seconds // 60
-                dur_text = f"⏱ {dur//60}h {dur%60}m"
-            except:
-                pass
-
-        st.markdown(f"""
-        <div style="background:#161b22;border:1px solid #30363d;border-left:4px solid {color};
-                    border-radius:12px;padding:16px 20px;margin-bottom:10px;
-                    display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
-            <div>
-                <p style="color:#e6edf3;font-weight:700;margin:0 0 4px;">👤 {name}</p>
-                <p style="color:#8b949e;font-size:.82rem;margin:0;">
-                    📅 {date} ({day_name})
-                    {"&nbsp;·&nbsp; 🟢 " + time_in if time_in else ""}
-                    {"→ 🔴 " + time_out if time_out else ""}
-                    {"&nbsp;&nbsp;" + dur_text if dur_text else ""}
-                    {"&nbsp;·&nbsp; 🏖 " + leave_reason if leave_reason else ""}
-                </p>
-            </div>
-            <div>{badge(status, color)}</div>
-        </div>
-        """, unsafe_allow_html=True)
-
 # ── TABLE VIEW ──
-else:
-    # Header row
-    h1,h2,h3,h4,h5,h6,h7 = st.columns([1.6,1.4,1.2,1.1,1.1,1.4,1.6])
-    for col, lbl in zip([h1,h2,h3,h4,h5,h6,h7],
-        ["👤 User","📅 Date","📆 Day","🟢 In","🔴 Out","⏱ Duration","📌 Status"]):
-        col.markdown(f"<p style='color:#8b949e;font-size:.72rem;font-weight:600;"
-                     f"text-transform:uppercase;letter-spacing:.7px;margin:0;'>{lbl}</p>",
-                     unsafe_allow_html=True)
-    st.markdown("<hr style='margin:8px 0 4px;border-color:#21262d;'>", unsafe_allow_html=True)
+html = "<div style='overflow-x:auto; margin-top: 10px; padding-bottom: 10px;'>"
+html += "<table style='width:100%; border-collapse:collapse; text-align:left; min-width: 800px;'>"
+html += "<thead><tr style='border-bottom:1px solid #21262d;'>"
+html += "<th style='padding:8px 8px 12px 8px; color:#8b949e; font-size:.72rem; text-transform:uppercase; letter-spacing:.7px; font-weight:600;'>👤 User</th>"
+html += "<th style='padding:8px 8px 12px 8px; color:#8b949e; font-size:.72rem; text-transform:uppercase; letter-spacing:.7px; font-weight:600;'>📅 Date</th>"
+html += "<th style='padding:8px 8px 12px 8px; color:#8b949e; font-size:.72rem; text-transform:uppercase; letter-spacing:.7px; font-weight:600;'>📆 Day</th>"
+html += "<th style='padding:8px 8px 12px 8px; color:#8b949e; font-size:.72rem; text-transform:uppercase; letter-spacing:.7px; font-weight:600;'>🟢 In</th>"
+html += "<th style='padding:8px 8px 12px 8px; color:#8b949e; font-size:.72rem; text-transform:uppercase; letter-spacing:.7px; font-weight:600;'>🔴 Out</th>"
+html += "<th style='padding:8px 8px 12px 8px; color:#8b949e; font-size:.72rem; text-transform:uppercase; letter-spacing:.7px; font-weight:600;'>⏱ Duration</th>"
+html += "<th style='padding:8px 8px 12px 8px; color:#8b949e; font-size:.72rem; text-transform:uppercase; letter-spacing:.7px; font-weight:600;'>📌 Status</th>"
+html += "<th style='padding:8px 8px 12px 8px; color:#8b949e; font-size:.72rem; text-transform:uppercase; letter-spacing:.7px; font-weight:600;'>🏖️ Reason</th>"
+html += "</tr></thead><tbody>"
 
-    for r in records:
-        name, date, time_in, time_out, leave_reason = r
-        day_name, status, color = resolve_status(date, time_in, time_out, leave_reason)
+for r in records:
+    name, date, time_in, time_out, leave_reason = r
+    day_name, status, color = resolve_status(date, time_in, time_out, leave_reason)
 
-        dur_text = "—"
-        if time_in and time_out:
-            try:
-                t1  = datetime.strptime(time_in,  "%H:%M")
-                t2  = datetime.strptime(time_out, "%H:%M")
-                dur = (t2 - t1).seconds // 60
-                dur_text = f"{dur//60}h {dur%60}m"
-            except:
-                pass
+    dur_text = "—"
+    if time_in and time_out:
+        try:
+            t1  = datetime.strptime(time_in,  "%H:%M")
+            t2  = datetime.strptime(time_out, "%H:%M")
+            dur = (t2 - t1).seconds // 60
+            dur_text = f"{dur//60}h {dur%60}m"
+        except:
+            pass
 
-        c1,c2,c3,c4,c5,c6,c7 = st.columns([1.6,1.4,1.2,1.1,1.1,1.4,1.6])
-        c1.markdown(f"<span style='color:#c9d1d9;font-weight:600;'>{name}</span>", unsafe_allow_html=True)
-        c2.markdown(f"<span style='color:#8b949e;font-size:.85rem;'>{date}</span>", unsafe_allow_html=True)
-        c3.markdown(f"<span style='color:#8b949e;font-size:.85rem;'>{day_name}</span>", unsafe_allow_html=True)
-        c4.markdown(f"<span style='color:#3fb950;font-size:.85rem;'>{time_in or '—'}</span>", unsafe_allow_html=True)
-        c5.markdown(f"<span style='color:#f85149;font-size:.85rem;'>{time_out or '—'}</span>", unsafe_allow_html=True)
-        c6.markdown(f"<span style='color:#d29922;font-size:.85rem;'>{dur_text}</span>", unsafe_allow_html=True)
-        c7.markdown(badge(status, color), unsafe_allow_html=True)
+    html += "<tr style='border-bottom:1px solid #21262d;'>"
+    html += f"<td style='padding:12px 8px; color:#c9d1d9; font-weight:600;'>{name}</td>"
+    html += f"<td style='padding:12px 8px; color:#8b949e; font-size:.85rem;'>{date}</td>"
+    html += f"<td style='padding:12px 8px; color:#8b949e; font-size:.85rem;'>{day_name}</td>"
+    html += f"<td style='padding:12px 8px; color:#3fb950; font-size:.85rem;'>{time_in or '—'}</td>"
+    html += f"<td style='padding:12px 8px; color:#f85149; font-size:.85rem;'>{time_out or '—'}</td>"
+    html += f"<td style='padding:12px 8px; color:#d29922; font-size:.85rem;'>{dur_text}</td>"
+    html += f"<td style='padding:12px 8px;'>{badge(status, color)}</td>"
+    html += f"<td style='padding:12px 8px; color:#8b949e; font-size:.85rem;'>{leave_reason or '—'}</td>"
+    html += "</tr>"
 
-        st.markdown("<hr style='margin:4px 0;border-color:#21262d;'>", unsafe_allow_html=True)
+html += "</tbody></table></div>"
+st.markdown(html, unsafe_allow_html=True)
 
 # ── Excel Export ──
 st.markdown("<br>", unsafe_allow_html=True)
