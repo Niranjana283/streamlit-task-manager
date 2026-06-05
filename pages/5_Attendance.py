@@ -3,195 +3,193 @@ from database import cursor
 import pandas as pd
 from io import BytesIO
 from datetime import datetime
+from auth_guard import require_login, get_user
+from theme import inject_theme, page_header, section_header, badge, STATUS_COLOR
 
-st.set_page_config(page_title="Attendance", layout="wide")
+st.set_page_config(page_title="Attendance · TaskFlow", page_icon="🗓️", layout="wide", initial_sidebar_state="expanded")
+inject_theme()
+require_login()
+user = get_user()
 
-st.title("📊 Attendance Dashboard (From Tasks)")
+page_header("🗓️", "Attendance", "Track and review daily check-in / check-out records")
 
-# ---------------- MOBILE TOGGLE ----------------
-is_mobile = st.sidebar.checkbox("📱 Mobile View", value=False)
+# ── Holidays ──
+HOLIDAYS = ["2026-01-26", "2026-08-15", "2026-10-02"]
 
-# ---------------- HOLIDAYS ----------------
-HOLIDAYS = [
-    "2026-01-26",
-    "2026-08-15",
-    "2026-10-02",
-]
-
-# ---------------- FETCH USERS ----------------
-users = cursor.execute("SELECT id, name FROM users").fetchall()
-
+# ── User filter ──
+users     = cursor.execute("SELECT id, name FROM users").fetchall()
 user_dict = {u[1]: u[0] for u in users}
-user_names = ["All"] + list(user_dict.keys())
 
-selected_user = st.selectbox("👤 Filter by User", user_names)
+section_header("Filters")
+col_f1, col_f2 = st.columns(2)
+selected_user = col_f1.selectbox("👤 Filter by User", ["All"] + list(user_dict.keys()))
+view_mode     = col_f2.selectbox("🖥️ View Mode", ["Table", "Cards"])
 
-# ---------------- FETCH DATA ----------------
+# ── Fetch ──
 if selected_user == "All":
-    records = cursor.execute(
-        """
+    records = cursor.execute("""
         SELECT u.name, t.due_date, t.time_in, t.time_out, t.leave_reason
-        FROM tasks t
-        JOIN users u ON t.user_id = u.id
-        WHERE t.sub_task IS NOT NULL
-        ORDER BY t.due_date DESC
-        """
-    ).fetchall()
+        FROM tasks t JOIN users u ON t.user_id = u.id
+        WHERE t.sub_task IS NOT NULL ORDER BY t.due_date DESC
+    """).fetchall()
 else:
-    user_id = user_dict[selected_user]
-
-    records = cursor.execute(
-        """
+    uid = user_dict[selected_user]
+    records = cursor.execute("""
         SELECT u.name, t.due_date, t.time_in, t.time_out, t.leave_reason
-        FROM tasks t
-        JOIN users u ON t.user_id = u.id
-        WHERE t.user_id = ? AND t.sub_task IS NOT NULL
-        ORDER BY t.due_date DESC
-        """,
-        (user_id,)
-    ).fetchall()
-
-# ---------------- DISPLAY ----------------
-st.subheader("📋 Attendance Table")
+        FROM tasks t JOIN users u ON t.user_id = u.id
+        WHERE t.user_id=? AND t.sub_task IS NOT NULL ORDER BY t.due_date DESC
+    """, (uid,)).fetchall()
 
 if not records:
-    st.info("No data available")
+    st.info("No attendance records found.")
+    st.stop()
 
-else:
-
-    # ================= MOBILE VIEW =================
-    if is_mobile:
-
-        for r in records:
-            name, date, time_in, time_out, leave_reason = r
-
-            date_obj = datetime.strptime(date, "%Y-%m-%d")
-            day_name = date_obj.strftime("%A")
-
-            is_weekend = date_obj.weekday() >= 5
-            is_holiday = date in HOLIDAYS
-
-            # Status logic
-            if is_weekend or is_holiday:
-                status = "🟡 Not Working Day"
-                reason = "Weekend/Holiday"
-            elif leave_reason:
-                status = "❌ Leave"
-                reason = leave_reason
-            elif time_in and time_out:
-                status = "✅ Present"
-                reason = "None"
-            else:
-                status = "⚠️ Partial"
-                reason = "Not specified"
-
-            # Card UI
-            with st.container():
-                st.markdown(f"""
-### 👤 {name}
-📅 {date} ({day_name})  
-🟢 In: {time_in if time_in else "-"}  
-🔴 Out: {time_out if time_out else "-"}  
-📌 Status: {status}  
-🏖️ Reason: {reason}
-""")
-                st.divider()
-
-    # ================= DESKTOP VIEW =================
-    else:
-
-        col1, col2, col3, col4, col5, col6, col7 = st.columns(7)
-
-        col1.markdown("**👤 User**")
-        col2.markdown("**📅 Date**")
-        col3.markdown("**📆 Day**")
-        col4.markdown("**🟢 In Time**")
-        col5.markdown("**🔴 Out Time**")
-        col6.markdown("**📌 Status**")
-        col7.markdown("**🏖️ Reason**")
-
-        st.markdown("---")
-
-        for r in records:
-            name, date, time_in, time_out, leave_reason = r
-
-            date_obj = datetime.strptime(date, "%Y-%m-%d")
-            day_name = date_obj.strftime("%A")
-
-            col1, col2, col3, col4, col5, col6, col7 = st.columns(7)
-
-            col1.write(name)
-            col2.write(date)
-            col3.write(day_name)
-            col4.write(time_in if time_in else "-")
-            col5.write(time_out if time_out else "-")
-
-            is_weekend = date_obj.weekday() >= 5
-            is_holiday = date in HOLIDAYS
-
-            if is_weekend or is_holiday:
-                col6.info("Not Working Day 🟡")
-                col7.write("Weekend/Holiday")
-
-            elif leave_reason:
-                col6.error("Leave ❌")
-                col7.write(leave_reason)
-
-            elif time_in and time_out:
-                col6.success("Present ✅")
-                col7.write("None")
-
-            else:
-                col6.warning("Partial ⚠️")
-                col7.write("Not specified")
-
-    # ======================================================
-    # 📥 EXPORT TO EXCEL
-    # ======================================================
-
-    st.markdown("### 📥 Export Data")
-
-    df = pd.DataFrame(records, columns=[
-        "User", "Date", "In Time", "Out Time", "Leave Reason"
-    ])
-
-    df["Day"] = df["Date"].apply(
-        lambda x: datetime.strptime(x, "%Y-%m-%d").strftime("%A")
-    )
-
-    def get_status(row):
-        date_obj = datetime.strptime(row["Date"], "%Y-%m-%d")
-
+# ── Status resolver ──
+def resolve_status(date_str, time_in, time_out, leave_reason):
+    try:
+        date_obj   = datetime.strptime(date_str, "%Y-%m-%d")
         is_weekend = date_obj.weekday() >= 5
-        is_holiday = row["Date"] in HOLIDAYS
+        is_holiday = date_str in HOLIDAYS
+        day_name   = date_obj.strftime("%A")
+    except:
+        return "—", "—", "#8b949e"
 
-        if is_weekend or is_holiday:
-            return "Not Working Day"
-        elif row["Leave Reason"]:
-            return "Leave"
-        elif row["In Time"] and row["Out Time"]:
-            return "Present"
-        else:
-            return "Partial"
+    if is_weekend or is_holiday:
+        return day_name, "Not Working Day", STATUS_COLOR["Not Working Day"]
+    elif leave_reason:
+        return day_name, "Leave", STATUS_COLOR["Leave"]
+    elif time_in and time_out:
+        return day_name, "Present", STATUS_COLOR["Present"]
+    else:
+        return day_name, "Partial", STATUS_COLOR["Partial"]
 
-    df["Status"] = df.apply(get_status, axis=1)
+# ── Live KPI banner ──
+st.markdown("<br>", unsafe_allow_html=True)
+section_header("Attendance Summary")
 
-    df["In Time"] = df["In Time"].fillna("-")
-    df["Out Time"] = df["Out Time"].fillna("-")
-    df["Leave Reason"] = df["Leave Reason"].fillna("None")
+present_count = 0
+leave_count   = 0
+partial_count = 0
+off_count     = 0
+for r in records:
+    _, status, _ = resolve_status(r[1], r[2], r[3], r[4])
+    if status == "Present":       present_count += 1
+    elif status == "Leave":       leave_count   += 1
+    elif status == "Partial":     partial_count += 1
+    elif status == "Not Working Day": off_count += 1
 
-    df = df[["User", "Date", "Day", "In Time", "Out Time", "Status", "Leave Reason"]]
+k1, k2, k3, k4 = st.columns(4)
+def kpi(icon, label, value, color):
+    return (f"<div style='background:#161b22;border:1px solid #30363d;"
+            f"border-left:4px solid {color};border-radius:12px;padding:18px 20px;'>"
+            f"<p style='color:#8b949e;font-size:.72rem;text-transform:uppercase;"
+            f"letter-spacing:1px;margin:0 0 8px;'>{icon} {label}</p>"
+            f"<p style='color:#e6edf3;font-size:1.8rem;font-weight:800;margin:0;'>{value}</p></div>")
 
-    output = BytesIO()
+k1.markdown(kpi("✅","Present",        present_count, "#3fb950"), unsafe_allow_html=True)
+k2.markdown(kpi("❌","On Leave",       leave_count,   "#f85149"), unsafe_allow_html=True)
+k3.markdown(kpi("⚠️","Partial",        partial_count, "#d29922"), unsafe_allow_html=True)
+k4.markdown(kpi("🟡","Non-Working",    off_count,     "#8b949e"), unsafe_allow_html=True)
 
-    with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        df.to_excel(writer, index=False, sheet_name="Attendance")
+st.markdown("<br>", unsafe_allow_html=True)
+section_header("Records")
 
-    excel_data = output.getvalue()
+# ── CARD VIEW ──
+if view_mode == "Cards":
+    for r in records:
+        name, date, time_in, time_out, leave_reason = r
+        day_name, status, color = resolve_status(date, time_in, time_out, leave_reason)
 
-    st.download_button(
-        label="📥 Export to Excel",
-        data=excel_data,
-        file_name=f"attendance_{selected_user}.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+        dur_text = ""
+        if time_in and time_out:
+            try:
+                t1  = datetime.strptime(time_in,  "%H:%M")
+                t2  = datetime.strptime(time_out, "%H:%M")
+                dur = (t2 - t1).seconds // 60
+                dur_text = f"⏱ {dur//60}h {dur%60}m"
+            except:
+                pass
+
+        st.markdown(f"""
+        <div style="background:#161b22;border:1px solid #30363d;border-left:4px solid {color};
+                    border-radius:12px;padding:16px 20px;margin-bottom:10px;
+                    display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+            <div>
+                <p style="color:#e6edf3;font-weight:700;margin:0 0 4px;">👤 {name}</p>
+                <p style="color:#8b949e;font-size:.82rem;margin:0;">
+                    📅 {date} ({day_name})
+                    {"&nbsp;·&nbsp; 🟢 " + time_in if time_in else ""}
+                    {"→ 🔴 " + time_out if time_out else ""}
+                    {"&nbsp;&nbsp;" + dur_text if dur_text else ""}
+                    {"&nbsp;·&nbsp; 🏖 " + leave_reason if leave_reason else ""}
+                </p>
+            </div>
+            <div>{badge(status, color)}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+# ── TABLE VIEW ──
+else:
+    # Header row
+    h1,h2,h3,h4,h5,h6,h7 = st.columns([1.6,1.4,1.2,1.1,1.1,1.4,1.6])
+    for col, lbl in zip([h1,h2,h3,h4,h5,h6,h7],
+        ["👤 User","📅 Date","📆 Day","🟢 In","🔴 Out","⏱ Duration","📌 Status"]):
+        col.markdown(f"<p style='color:#8b949e;font-size:.72rem;font-weight:600;"
+                     f"text-transform:uppercase;letter-spacing:.7px;margin:0;'>{lbl}</p>",
+                     unsafe_allow_html=True)
+    st.markdown("<hr style='margin:8px 0 4px;border-color:#21262d;'>", unsafe_allow_html=True)
+
+    for r in records:
+        name, date, time_in, time_out, leave_reason = r
+        day_name, status, color = resolve_status(date, time_in, time_out, leave_reason)
+
+        dur_text = "—"
+        if time_in and time_out:
+            try:
+                t1  = datetime.strptime(time_in,  "%H:%M")
+                t2  = datetime.strptime(time_out, "%H:%M")
+                dur = (t2 - t1).seconds // 60
+                dur_text = f"{dur//60}h {dur%60}m"
+            except:
+                pass
+
+        c1,c2,c3,c4,c5,c6,c7 = st.columns([1.6,1.4,1.2,1.1,1.1,1.4,1.6])
+        c1.markdown(f"<span style='color:#c9d1d9;font-weight:600;'>{name}</span>", unsafe_allow_html=True)
+        c2.markdown(f"<span style='color:#8b949e;font-size:.85rem;'>{date}</span>", unsafe_allow_html=True)
+        c3.markdown(f"<span style='color:#8b949e;font-size:.85rem;'>{day_name}</span>", unsafe_allow_html=True)
+        c4.markdown(f"<span style='color:#3fb950;font-size:.85rem;'>{time_in or '—'}</span>", unsafe_allow_html=True)
+        c5.markdown(f"<span style='color:#f85149;font-size:.85rem;'>{time_out or '—'}</span>", unsafe_allow_html=True)
+        c6.markdown(f"<span style='color:#d29922;font-size:.85rem;'>{dur_text}</span>", unsafe_allow_html=True)
+        c7.markdown(badge(status, color), unsafe_allow_html=True)
+
+        st.markdown("<hr style='margin:4px 0;border-color:#21262d;'>", unsafe_allow_html=True)
+
+# ── Excel Export ──
+st.markdown("<br>", unsafe_allow_html=True)
+section_header("Export")
+
+df = pd.DataFrame(records, columns=["User","Date","In Time","Out Time","Leave Reason"])
+df["Day"] = df["Date"].apply(lambda x: datetime.strptime(x, "%Y-%m-%d").strftime("%A"))
+
+def get_status_label(row):
+    _, s, _ = resolve_status(row["Date"], row["In Time"], row["Out Time"], row["Leave Reason"])
+    return s
+
+df["Status"]       = df.apply(get_status_label, axis=1)
+df["In Time"]      = df["In Time"].fillna("—")
+df["Out Time"]     = df["Out Time"].fillna("—")
+df["Leave Reason"] = df["Leave Reason"].fillna("None")
+df = df[["User","Date","Day","In Time","Out Time","Status","Leave Reason"]]
+
+output = BytesIO()
+with pd.ExcelWriter(output, engine="openpyxl") as writer:
+    df.to_excel(writer, index=False, sheet_name="Attendance")
+excel_data = output.getvalue()
+
+st.download_button(
+    label="📥 Download Excel Report",
+    data=excel_data,
+    file_name=f"attendance_{selected_user}.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    use_container_width=True,
+)

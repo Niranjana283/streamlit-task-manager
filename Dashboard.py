@@ -3,7 +3,7 @@ from auth import login, register, set_session
 from database import cursor
 from theme import inject_theme, section_header, badge
 
-st.set_page_config(page_title="TaskFlow Pro", page_icon="⚡", layout="wide")
+st.set_page_config(page_title="TaskFlow Pro", page_icon="⚡", layout="wide", initial_sidebar_state="expanded")
 inject_theme()
 
 # ── Session bootstrap ──
