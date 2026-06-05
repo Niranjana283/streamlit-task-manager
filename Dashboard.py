@@ -1,91 +1,163 @@
 import streamlit as st
+from auth import login, register, set_session
 from database import cursor
+from theme import inject_theme, section_header, badge
 
-# -------- PAGE CONFIG --------
-st.set_page_config(
-    page_title="Task Dashboard",
-    page_icon="📊",
-    layout="wide"
-)
+st.set_page_config(page_title="TaskFlow Pro", page_icon="⚡", layout="wide")
+inject_theme()
 
-# ======================================================
-# 📊 MAIN DASHBOARD
-# ======================================================
+# ── Session bootstrap ──
+if "user" not in st.session_state:
+    st.session_state["user"] = None
 
-st.title("📊 Task Manager Dashboard")
-st.caption("Quick overview of task progress")
+user = st.session_state["user"]
 
-# -------- FETCH DATA --------
-total_tasks = cursor.execute("SELECT COUNT(*) FROM tasks").fetchone()[0]
-completed_tasks = cursor.execute("SELECT COUNT(*) FROM tasks WHERE completed = 1").fetchone()[0]
-pending_tasks = cursor.execute("SELECT COUNT(*) FROM tasks WHERE completed = 0").fetchone()[0]
+# =========================================================
+# NOT LOGGED IN — Premium Login Page
+# =========================================================
+if user is None:
+    st.markdown("""
+    <div style="text-align:center;margin-top:60px;margin-bottom:32px;">
+        <span style="font-size:3rem;">⚡</span>
+        <h1 style="color:#e6edf3;font-size:2rem;font-weight:800;margin:10px 0 4px;">TaskFlow Pro</h1>
+        <p style="color:#8b949e;font-size:.95rem;margin:0;">Team productivity, simplified.</p>
+    </div>
+    """, unsafe_allow_html=True)
 
-# -------- METRICS --------
-col1, col2, col3 = st.columns(3)
+    _, col, _ = st.columns([1, 1.4, 1])
+    with col:
+        menu = st.selectbox("", ["🔑 Login", "📝 Register"], label_visibility="collapsed")
+        st.markdown("<br>", unsafe_allow_html=True)
 
-col1.metric("📋 Total Tasks", total_tasks)
-col2.metric("✅ Completed Tasks", completed_tasks)
-col3.metric("⏳ Pending Tasks", pending_tasks)
+        if menu == "🔑 Login":
+            with st.form("login_form"):
+                username = st.text_input("Username", placeholder="Enter your username")
+                password = st.text_input("Password", placeholder="••••••••", type="password")
+                submitted = st.form_submit_button("Sign In →", use_container_width=True)
+            if submitted:
+                result = login(username, password)
+                if result:
+                    set_session(result)
+                    st.success("Welcome back! 🎉")
+                    st.rerun()
+                else:
+                    st.error("❌ Invalid username or password.")
 
-st.divider()
+        else:
+            with st.form("register_form"):
+                username = st.text_input("Username", placeholder="Choose a username")
+                password = st.text_input("Password", placeholder="••••••••", type="password")
+                role     = st.selectbox("Role", ["user", "admin"])
+                submitted = st.form_submit_button("Create Account →", use_container_width=True)
+            if submitted:
+                if register(username, password, role):
+                    st.success("✅ Account created! Please login.")
+                else:
+                    st.error("❌ Username already taken.")
 
-# -------- PROGRESS BAR --------
-st.subheader("📈 Overall Progress")
+    st.stop()
 
-progress = completed_tasks / total_tasks if total_tasks > 0 else 0
-st.progress(progress)
-st.write(f"**{int(progress*100)}% of tasks completed**")
+# =========================================================
+# LOGGED IN — Dashboard
+# =========================================================
+is_admin = user["role"] == "admin"
+role_color = "#f78166" if is_admin else "#3fb950"
+role_label = "Admin" if is_admin else user["role"].capitalize()
 
-st.divider()
+# Live stats
+total_users     = cursor.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+total_tasks     = cursor.execute("SELECT COUNT(*) FROM tasks WHERE sub_task IS NOT NULL").fetchone()[0]
+completed_tasks = cursor.execute("SELECT COUNT(*) FROM tasks WHERE completed=1").fetchone()[0]
+pending_tasks   = total_tasks - completed_tasks
 
-# ======================================================
-# 👥 USER-WISE DASHBOARD
-# ======================================================
+# Hero banner
+st.markdown(f"""
+<div style="
+    background:linear-gradient(135deg,#161b22 0%,#0d1117 100%);
+    border:1px solid #30363d; border-radius:16px;
+    padding:30px 36px; margin-bottom:28px;
+    display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px;
+">
+    <div>
+        <p style="color:#8b949e;font-size:.75rem;text-transform:uppercase;letter-spacing:1.5px;margin:0 0 6px;">
+            Welcome back
+        </p>
+        <h1 style="color:#e6edf3;font-size:1.9rem;font-weight:800;margin:0 0 12px;">
+            👋 {user['username']}
+        </h1>
+        <span style="background:{role_color}22;color:{role_color};border:1px solid {role_color}44;
+              border-radius:20px;padding:4px 14px;font-size:.78rem;font-weight:600;">
+            ⬡ {role_label}
+        </span>
+    </div>
+    <div style="text-align:right;">
+        <p style="color:#8b949e;font-size:.75rem;margin:0 0 4px;">Platform</p>
+        <p style="color:#58a6ff;font-size:1.6rem;font-weight:800;margin:0;">⚡ TaskFlow Pro</p>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
-st.subheader("👥 User Task Overview")
+# KPI cards
+section_header("Overview")
 
-user_stats = cursor.execute("""
-SELECT 
-    u.name,
-    COUNT(t.id) as total,
-    SUM(CASE WHEN t.completed = 1 THEN 1 ELSE 0 END) as completed,
-    SUM(CASE WHEN t.completed = 0 THEN 1 ELSE 0 END) as pending
-FROM users u
-LEFT JOIN tasks t ON u.id = t.user_id
-GROUP BY u.id
-ORDER BY u.name
-""").fetchall()
+def kpi(icon, label, value, color):
+    return f"""
+    <div style="background:#161b22;border:1px solid #30363d;border-left:4px solid {color};
+                border-radius:12px;padding:20px 22px;">
+        <p style="color:#8b949e;font-size:.75rem;text-transform:uppercase;
+                  letter-spacing:1px;margin:0 0 10px;">{icon} {label}</p>
+        <p style="color:#e6edf3;font-size:2.1rem;font-weight:800;margin:0;line-height:1;">{value}</p>
+    </div>"""
 
-if user_stats:
+c1, c2, c3, c4 = st.columns(4)
+c1.markdown(kpi("👥", "Total Users",  total_users,     "#58a6ff"), unsafe_allow_html=True)
+c2.markdown(kpi("📋", "Total Tasks",  total_tasks,     "#bc8cff"), unsafe_allow_html=True)
+c3.markdown(kpi("✅", "Completed",    completed_tasks, "#3fb950"), unsafe_allow_html=True)
+c4.markdown(kpi("⏳", "Pending",      pending_tasks,   "#d29922"), unsafe_allow_html=True)
 
-    col1, col2, col3, col4, col5 = st.columns(5)
+# Nav cards
+st.markdown("<br>", unsafe_allow_html=True)
+section_header("Quick Navigation")
 
-    col1.markdown("**👤 User**")
-    col2.markdown("**📋 Total**")
-    col3.markdown("**✅ Completed**")
-    col4.markdown("**⏳ Pending**")
-    col5.markdown("**📈 Progress**")
+def nav_card(icon, title, desc, color):
+    return f"""
+    <div style="background:#161b22;border:1px solid #30363d;border-radius:12px;
+                padding:22px 20px;transition:border-color .2s;cursor:pointer;">
+        <div style="font-size:1.8rem;margin-bottom:10px;">{icon}</div>
+        <p style="color:{color};font-size:.95rem;font-weight:700;margin:0 0 6px;">{title}</p>
+        <p style="color:#8b949e;font-size:.8rem;margin:0;line-height:1.5;">{desc}</p>
+    </div>"""
 
-    st.markdown("---")
+n1,n2,n3,n4,n5 = st.columns(5)
 
-    for u in user_stats:
-        name, total, completed, pending = u
+with n1:
+    st.markdown(nav_card("👥","User Management","Manage users & roles","#58a6ff"), unsafe_allow_html=True)
+    if st.button("Go →", key="nav_users", use_container_width=True):
+        st.switch_page("pages/1_User_Management.py")
 
-        total = total or 0
-        completed = completed or 0
-        pending = pending or 0
+with n2:
+    st.markdown(nav_card("📋","Task Management","Create & track weekly tasks","#bc8cff"), unsafe_allow_html=True)
+    if st.button("Go →", key="nav_tasks", use_container_width=True):
+        st.switch_page("pages/2_Task_Management.py")
 
-        progress = (completed / total) if total > 0 else 0
+with n3:
+    st.markdown(nav_card("📂","All Tasks","View all tasks at a glance","#3fb950"), unsafe_allow_html=True)
+    if st.button("Go →", key="nav_alltasks", use_container_width=True):
+        st.switch_page("pages/3_All_Tasks.py")
 
-        c1, c2, c3, c4, c5 = st.columns(5)
+with n4:
+    st.markdown(nav_card("📊","Reports","Export PDF task reports","#f78166"), unsafe_allow_html=True)
+    if st.button("Go →", key="nav_reports", use_container_width=True):
+        st.switch_page("pages/4_Report.py")
 
-        c1.write(name)
-        c2.write(total)
-        c3.success(completed)
-        c4.warning(pending)
+with n5:
+    st.markdown(nav_card("🗓️","Attendance","Track daily attendance","#d29922"), unsafe_allow_html=True)
+    if st.button("Go →", key="nav_attendance", use_container_width=True):
+        st.switch_page("pages/5_Attendance.py")
 
-        c5.progress(progress)
-        c5.write(f"{int(progress*100)}%")
-
-else:
-    st.info("No user data available")
+st.markdown("<br><br><hr>", unsafe_allow_html=True)
+col_out, _ = st.columns([1, 5])
+with col_out:
+    if st.button("🚪 Logout", use_container_width=True):
+        st.session_state["user"] = None
+        st.rerun()
