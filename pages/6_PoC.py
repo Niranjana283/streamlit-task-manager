@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 from io import BytesIO
+from database import add_poc_entry_multi, get_all_poc_entries_multi, delete_poc_entry_multi_by_intern
+
 # -------------------------------------------------
 # PoC (Proof of Concept) entry page
 # -------------------------------------------------
@@ -8,17 +10,31 @@ st.set_page_config(page_title="PoC Entries", page_icon="💡", layout="wide")
 
 # Initialise the DataFrame in session state if not present
 if "poc_table" not in st.session_state:
-    st.session_state["poc_table"] = pd.DataFrame(
-        columns=[
-            "Mentor Name",
-            "Intern",
-            "Use Case",
-            "Primary Users",
-            "Expected ROI",
-            "Production Level",
-            "GitHub Link",
-        ]
-    )
+    # Load persisted entries from the multi‑entry table (or start empty)
+    df = get_all_poc_entries_multi()
+    if not df.empty:
+        df = df.rename(columns={
+            "mentor_name": "Mentor Name",
+            "intern": "Intern",
+            "use_case": "Use Case",
+            "primary_users": "Primary Users",
+            "expected_roi": "Expected ROI",
+            "production_level": "Production Level",
+            "github_link": "GitHub Link",
+        })
+    else:
+        df = pd.DataFrame(
+            columns=[
+                "Mentor Name",
+                "Intern",
+                "Use Case",
+                "Primary Users",
+                "Expected ROI",
+                "Production Level",
+                "GitHub Link",
+            ]
+        )
+    st.session_state["poc_table"] = df
 
 st.title("💡 PoC – Add & Export Entries")
 st.write(
@@ -57,8 +73,20 @@ with st.form("poc_form"):
             "Production Level": production_level,
             "GitHub Link": github_link,
         }
-        # Add a new entry for the intern (allow multiple entries per intern)
-        st.session_state["poc_table"] = pd.concat([st.session_state["poc_table"], pd.DataFrame([new_row])], ignore_index=True)
+        # Persist the new entry in the database (allows duplicate interns)
+        add_poc_entry_multi(new_row)
+        # Refresh the session table from the DB and rename columns for UI
+        df = get_all_poc_entries_multi()
+        df = df.rename(columns={
+            "mentor_name": "Mentor Name",
+            "intern": "Intern",
+            "use_case": "Use Case",
+            "primary_users": "Primary Users",
+            "expected_roi": "Expected ROI",
+            "production_level": "Production Level",
+            "github_link": "GitHub Link",
+        })
+        st.session_state["poc_table"] = df
         st.success("Entry added!")
 
 # -------------------------------------------------------------------
@@ -77,8 +105,20 @@ else:
         key="delete_select"
     )
     if st.button("🗑️ Delete Selected", key="delete_button") and interns_to_delete:
-        df = st.session_state["poc_table"]
-        st.session_state["poc_table"] = df[~df["Intern"].isin(interns_to_delete)].reset_index(drop=True)
+        for intern in interns_to_delete:
+            delete_poc_entry_multi_by_intern(intern)
+        # Reload table from DB after deletions and rename columns
+        df = get_all_poc_entries_multi()
+        df = df.rename(columns={
+            "mentor_name": "Mentor Name",
+            "intern": "Intern",
+            "use_case": "Use Case",
+            "primary_users": "Primary Users",
+            "expected_roi": "Expected ROI",
+            "production_level": "Production Level",
+            "github_link": "GitHub Link",
+        })
+        st.session_state["poc_table"] = df
         st.success(f"Deleted {len(interns_to_delete)} entry(ies).")
         st.rerun()
 

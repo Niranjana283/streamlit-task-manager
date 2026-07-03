@@ -88,11 +88,24 @@ CREATE TABLE IF NOT EXISTS poc_entries (
 )
 """)
 
+# New table allowing multiple entries per intern (no UNIQUE constraint)
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS poc_entries_multi (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    mentor_name TEXT,
+    intern TEXT,
+    use_case TEXT,
+    primary_users TEXT,
+    expected_roi TEXT,
+    production_level TEXT,
+    github_link TEXT
+)
+""")
+
 # Helper functions for PoC entries
 
 def add_poc_entry(entry):
-    """Insert a new PoC entry.
-    `entry` is a dict with keys matching the column names (except id)."""
+    """Insert a new PoC entry into the unique‑intern table (kept for backward compatibility)."""
     cursor.execute(
         """INSERT INTO poc_entries (mentor_name, intern, use_case, primary_users, expected_roi, production_level, github_link)
            VALUES (?,?,?,?,?,?,?)""",
@@ -109,7 +122,7 @@ def add_poc_entry(entry):
     conn.commit()
 
 def get_all_poc_entries():
-    """Return a pandas DataFrame with all PoC entries."""
+    """Return a DataFrame from the unique‑intern table."""
     import pandas as pd
     return pd.read_sql_query("SELECT * FROM poc_entries", conn)
 
@@ -133,6 +146,34 @@ def update_poc_entry_by_intern(intern, updated):
 def delete_poc_entry(entry_id):
     """Delete a PoC entry by its primary key id."""
     cursor.execute("DELETE FROM poc_entries WHERE id = ?", (entry_id,))
+    conn.commit()
+
+# New helpers for the multi‑entry table
+def add_poc_entry_multi(entry):
+    """Insert a new PoC entry allowing duplicate interns."""
+    cursor.execute(
+        """INSERT INTO poc_entries_multi (mentor_name, intern, use_case, primary_users, expected_roi, production_level, github_link)
+           VALUES (?,?,?,?,?,?,?)""",
+        (
+            entry.get("Mentor Name"),
+            entry.get("Intern"),
+            entry.get("Use Case"),
+            entry.get("Primary Users"),
+            entry.get("Expected ROI"),
+            entry.get("Production Level"),
+            entry.get("GitHub Link"),
+        ),
+    )
+    conn.commit()
+
+def get_all_poc_entries_multi():
+    """Return a DataFrame with all entries from the multi‑entry table."""
+    import pandas as pd
+    return pd.read_sql_query("SELECT * FROM poc_entries_multi", conn)
+
+def delete_poc_entry_multi_by_intern(intern):
+    """Delete all PoC entries for a given intern from the multi‑entry table."""
+    cursor.execute("DELETE FROM poc_entries_multi WHERE intern = ?", (intern,))
     conn.commit()
 
 # Run migration for PoC table columns (if needed)
