@@ -30,7 +30,7 @@ if user is None:
 
     _, col, _ = st.columns([1, 1.4, 1])
     with col:
-        menu = st.selectbox("", ["🔑 Login", "📝 Register"], label_visibility="collapsed")
+        menu = st.selectbox("Menu", ["🔑 Login", "📝 Register"], label_visibility="collapsed")
         st.markdown("<br>", unsafe_allow_html=True)
 
         if menu == "🔑 Login":
@@ -64,6 +64,9 @@ if user is None:
 # =========================================================
 # LOGGED IN — Dashboard
 # =========================================================
+if user is None:
+    st.stop()
+
 is_admin = user["role"] == "admin"
 role_color = "#f78166" if is_admin else "#3fb950"
 role_label = "Admin" if is_admin else user["role"].capitalize()
@@ -158,7 +161,11 @@ with n5:
     st.markdown(nav_card("🗓️","Attendance","Track daily attendance","#d29922"), unsafe_allow_html=True)
     if st.button("Go →", key="nav_attendance", use_container_width=True):
         st.switch_page("pages/5_Attendance.py")
+st.markdown("<br>", unsafe_allow_html=True)
 
+st.markdown(nav_card("💡", "PoC", "Add and export PoC entries", "#ff7b72"), unsafe_allow_html=True)
+if st.button("Go →", key="nav_poc", use_container_width=True):
+    st.switch_page("pages/6_PoC.py")
 with st.sidebar:
     st.markdown("<br><br><hr>", unsafe_allow_html=True)
     if st.button("🚪 Logout", key="dash_logout", use_container_width=True):
