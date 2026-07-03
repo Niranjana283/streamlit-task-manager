@@ -57,16 +57,9 @@ with st.form("poc_form"):
             "Production Level": production_level,
             "GitHub Link": github_link,
         }
-        # If an entry with the same Intern already exists, update that row instead of adding duplicate
-        if not st.session_state["poc_table"].empty and intern in st.session_state["poc_table"]["Intern"].values:
-            idx = st.session_state["poc_table"][st.session_state["poc_table"]["Intern"] == intern].index[0]
-            for key, val in new_row.items():
-                if val:  # only replace non‑empty values
-                    st.session_state["poc_table"].at[idx, key] = val
-            st.success(f"Entry for intern '{intern}' updated!")
-        else:
-            st.session_state["poc_table"] = pd.concat([st.session_state["poc_table"], pd.DataFrame([new_row])], ignore_index=True)
-            st.success("Entry added!")
+        # Add a new entry for the intern (allow multiple entries per intern)
+        st.session_state["poc_table"] = pd.concat([st.session_state["poc_table"], pd.DataFrame([new_row])], ignore_index=True)
+        st.success("Entry added!")
 
 # -------------------------------------------------------------------
 # Display the table (spreadsheet‑like view)
