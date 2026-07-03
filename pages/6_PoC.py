@@ -111,34 +111,33 @@ st.subheader("Current PoC Entries")
 if st.session_state["poc_table"].empty:
     st.info("No entries yet. Add one using the form above.")
 else:
-    # Show DataFrame as an interactive grid
-    st.dataframe(st.session_state["poc_table"])
-    # Delete selected rows via multiselect
-    interns_to_delete = st.multiselect(
-        "Select Intern(s) to delete",
-        options=st.session_state["poc_table"]["Intern"].unique(),
-        key="delete_select"
-    )
-    if st.button("🗑️ Delete Selected", key="delete_button") and interns_to_delete:
-        for intern in interns_to_delete:
-            delete_poc_entry_multi_by_intern(intern)
-        # Reload table from DB after deletions and rename columns
-        df = get_all_poc_entries_multi()
-        df = df.rename(columns={
-            "mentor_name": "Mentor Name",
-            "intern": "Intern",
-            "use_case": "Use Case",
-            "primary_users": "Primary Users",
-            "expected_roi": "Expected ROI",
-            "production_level": "Production Level",
-            "github_link": "GitHub Link",
-            "features": "Features",
-            "function": "Function",
-            "url": "URL",
-        })
-        st.session_state["poc_table"] = df
-        st.success(f"Deleted {len(interns_to_delete)} entry(ies).")
-        st.rerun()
+    # Show each entry with an individual delete button
+    for idx, row in st.session_state["poc_table"].iterrows():
+        cols = st.columns([8, 1])
+        with cols[0]:
+            # Display the row as a single‑row DataFrame for nice formatting
+            st.write(row.to_frame().T)
+        with cols[1]:
+            if st.button("🗑️", key=f"delete_{idx}"):
+                # Delete the selected intern
+                delete_poc_entry_multi_by_intern(row["Intern"])
+                # Reload and update the session table
+                df = get_all_poc_entries_multi()
+                df = df.rename(columns={
+                    "mentor_name": "Mentor Name",
+                    "intern": "Intern",
+                    "use_case": "Use Case",
+                    "primary_users": "Primary Users",
+                    "expected_roi": "Expected ROI",
+                    "production_level": "Production Level",
+                    "github_link": "GitHub Link",
+                    "features": "Features",
+                    "function": "Function",
+                    "url": "URL",
+                })
+                st.session_state["poc_table"] = df
+                st.success(f"Deleted entry for {row['Intern']}.")
+                st.rerun()
 
 # -------------------------------------------------------------------
 # Export button – Excel download (Excel‑style sheet)
