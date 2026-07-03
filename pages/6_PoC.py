@@ -21,6 +21,8 @@ if "poc_table" not in st.session_state:
             "expected_roi": "Expected ROI",
             "production_level": "Production Level",
             "github_link": "GitHub Link",
+            "features": "Features",
+            "function": "Function",
         })
     else:
         df = pd.DataFrame(
@@ -32,6 +34,8 @@ if "poc_table" not in st.session_state:
                 "Expected ROI",
                 "Production Level",
                 "GitHub Link",
+                "Features",
+                "Function",
             ]
         )
     st.session_state["poc_table"] = df
@@ -60,6 +64,8 @@ with st.form("poc_form"):
     expected_roi = st.text_input("Expected ROI")
     production_level = st.text_input("Production Level")
     github_link = st.text_input("GitHub Link")
+    features = st.text_input("Features")
+    function = st.text_input("Function")
     submitted = st.form_submit_button("Add Entry")
 
     if submitted:
@@ -72,6 +78,8 @@ with st.form("poc_form"):
             "Expected ROI": expected_roi,
             "Production Level": production_level,
             "GitHub Link": github_link,
+            "Features": features,
+            "Function": function,
         }
         # Persist the new entry in the database (allows duplicate interns)
         add_poc_entry_multi(new_row)
@@ -85,6 +93,7 @@ with st.form("poc_form"):
             "expected_roi": "Expected ROI",
             "production_level": "Production Level",
             "github_link": "GitHub Link",
+            "features": "Features",
         })
         st.session_state["poc_table"] = df
         st.success("Entry added!")
@@ -117,6 +126,7 @@ else:
             "expected_roi": "Expected ROI",
             "production_level": "Production Level",
             "github_link": "GitHub Link",
+            "features": "Features",
         })
         st.session_state["poc_table"] = df
         st.success(f"Deleted {len(interns_to_delete)} entry(ies).")

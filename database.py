@@ -84,7 +84,9 @@ CREATE TABLE IF NOT EXISTS poc_entries (
     primary_users TEXT,
     expected_roi TEXT,
     production_level TEXT,
-    github_link TEXT
+    github_link TEXT,
+    features TEXT,
+    function TEXT
 )
 """)
 
@@ -98,7 +100,9 @@ CREATE TABLE IF NOT EXISTS poc_entries_multi (
     primary_users TEXT,
     expected_roi TEXT,
     production_level TEXT,
-    github_link TEXT
+    github_link TEXT,
+    features TEXT,
+    function TEXT
 )
 """)
 
@@ -107,8 +111,8 @@ CREATE TABLE IF NOT EXISTS poc_entries_multi (
 def add_poc_entry(entry):
     """Insert a new PoC entry into the unique‑intern table (kept for backward compatibility)."""
     cursor.execute(
-        """INSERT INTO poc_entries (mentor_name, intern, use_case, primary_users, expected_roi, production_level, github_link)
-           VALUES (?,?,?,?,?,?,?)""",
+        """INSERT INTO poc_entries (mentor_name, intern, use_case, primary_users, expected_roi, production_level, github_link, features, function)
+           VALUES (?,?,?,?,?,?,?,?,?)""",
         (
             entry.get("Mentor Name"),
             entry.get("Intern"),
@@ -117,6 +121,8 @@ def add_poc_entry(entry):
             entry.get("Expected ROI"),
             entry.get("Production Level"),
             entry.get("GitHub Link"),
+            entry.get("Features"),
+            entry.get("Function"),
         ),
     )
     conn.commit()
@@ -129,7 +135,7 @@ def get_all_poc_entries():
 def update_poc_entry_by_intern(intern, updated):
     """Update an existing entry identified by `intern`."""
     cursor.execute(
-        """UPDATE poc_entries SET mentor_name = ?, use_case = ?, primary_users = ?, expected_roi = ?, production_level = ?, github_link = ?
+        """UPDATE poc_entries SET mentor_name = ?, use_case = ?, primary_users = ?, expected_roi = ?, production_level = ?, github_link = ?, features = ?, function = ?
            WHERE intern = ?""",
         (
             updated.get("Mentor Name"),
@@ -138,6 +144,8 @@ def update_poc_entry_by_intern(intern, updated):
             updated.get("Expected ROI"),
             updated.get("Production Level"),
             updated.get("GitHub Link"),
+            updated.get("Features"),
+            updated.get("Function"),
             intern,
         ),
     )
@@ -152,8 +160,8 @@ def delete_poc_entry(entry_id):
 def add_poc_entry_multi(entry):
     """Insert a new PoC entry allowing duplicate interns."""
     cursor.execute(
-        """INSERT INTO poc_entries_multi (mentor_name, intern, use_case, primary_users, expected_roi, production_level, github_link)
-           VALUES (?,?,?,?,?,?,?)""",
+        """INSERT INTO poc_entries_multi (mentor_name, intern, use_case, primary_users, expected_roi, production_level, github_link, features, function)
+           VALUES (?,?,?,?,?,?,?,?,?)""",
         (
             entry.get("Mentor Name"),
             entry.get("Intern"),
@@ -162,6 +170,8 @@ def add_poc_entry_multi(entry):
             entry.get("Expected ROI"),
             entry.get("Production Level"),
             entry.get("GitHub Link"),
+            entry.get("Features"),
+            entry.get("Function"),
         ),
     )
     conn.commit()
@@ -184,3 +194,7 @@ add_column_if_missing("poc_entries", "primary_users", "TEXT")
 add_column_if_missing("poc_entries", "expected_roi", "TEXT")
 add_column_if_missing("poc_entries", "production_level", "TEXT")
 add_column_if_missing("poc_entries", "github_link", "TEXT")
+add_column_if_missing("poc_entries", "features", "TEXT")
+add_column_if_missing("poc_entries", "function", "TEXT")
+add_column_if_missing("poc_entries_multi", "features", "TEXT")
+add_column_if_missing("poc_entries_multi", "function", "TEXT")
