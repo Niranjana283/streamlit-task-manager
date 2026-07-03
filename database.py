@@ -186,9 +186,20 @@ def get_all_poc_entries_multi():
     return pd.read_sql_query("SELECT * FROM poc_entries_multi", conn)
 
 def delete_poc_entry_multi_by_intern(intern):
-    """Delete all PoC entries for a given intern from the multi‑entry table."""
-    cursor.execute("DELETE FROM poc_entries_multi WHERE intern = ?", (intern,))
-    conn.commit()
+    """Delete all PoC entries for a given intern from the multi‑entry table.
+    Handles potential OperationalError gracefully and ensures the provided intern is valid.
+    """
+    if not intern:
+        # Nothing to delete
+        return
+    try:
+        cursor.execute("DELETE FROM poc_entries_multi WHERE intern = ?", (intern,))
+        conn.commit()
+    except Exception as e:
+        # Log the error for debugging; in Streamlit this will appear in the console.
+        print(f"Error deleting PoC entries for intern '{intern}': {e}")
+        # Optionally, re-raise if you want the UI to reflect the failure.
+        raise
 
 # Run migration for PoC table columns (if needed)
 add_column_if_missing("poc_entries", "mentor_name", "TEXT")
