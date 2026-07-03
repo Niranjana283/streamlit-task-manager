@@ -23,6 +23,7 @@ if "poc_table" not in st.session_state:
             "github_link": "GitHub Link",
             "features": "Features",
             "function": "Function",
+            "url": "URL",
         })
     else:
         df = pd.DataFrame(
@@ -36,6 +37,7 @@ if "poc_table" not in st.session_state:
                 "GitHub Link",
                 "Features",
                 "Function",
+                "URL",
             ]
         )
     st.session_state["poc_table"] = df
@@ -66,6 +68,7 @@ with st.form("poc_form"):
     github_link = st.text_input("GitHub Link")
     features = st.text_input("Features")
     function = st.text_input("Function")
+    url = st.text_input("URL")
     submitted = st.form_submit_button("Add Entry")
 
     if submitted:
@@ -80,6 +83,7 @@ with st.form("poc_form"):
             "GitHub Link": github_link,
             "Features": features,
             "Function": function,
+            "URL": url,
         }
         # Persist the new entry in the database (allows duplicate interns)
         add_poc_entry_multi(new_row)
@@ -94,6 +98,8 @@ with st.form("poc_form"):
             "production_level": "Production Level",
             "github_link": "GitHub Link",
             "features": "Features",
+            "function": "Function",
+            "url": "URL",
         })
         st.session_state["poc_table"] = df
         st.success("Entry added!")
@@ -127,6 +133,8 @@ else:
             "production_level": "Production Level",
             "github_link": "GitHub Link",
             "features": "Features",
+            "function": "Function",
+            "url": "URL",
         })
         st.session_state["poc_table"] = df
         st.success(f"Deleted {len(interns_to_delete)} entry(ies).")

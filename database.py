@@ -65,7 +65,7 @@ def add_column_if_missing(table, column, column_type):
     if column not in cols:
         cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column} {column_type}")
         conn.commit()
-        print(f"✅ Added {column} to {table}")
+        print(f"Added {column} to {table}")
 
 
 # Run migrations
@@ -86,7 +86,8 @@ CREATE TABLE IF NOT EXISTS poc_entries (
     production_level TEXT,
     github_link TEXT,
     features TEXT,
-    function TEXT
+    function TEXT,
+    url TEXT
 )
 """)
 
@@ -102,7 +103,8 @@ CREATE TABLE IF NOT EXISTS poc_entries_multi (
     production_level TEXT,
     github_link TEXT,
     features TEXT,
-    function TEXT
+    function TEXT,
+    url TEXT
 )
 """)
 
@@ -111,8 +113,8 @@ CREATE TABLE IF NOT EXISTS poc_entries_multi (
 def add_poc_entry(entry):
     """Insert a new PoC entry into the unique‑intern table (kept for backward compatibility)."""
     cursor.execute(
-        """INSERT INTO poc_entries (mentor_name, intern, use_case, primary_users, expected_roi, production_level, github_link, features, function)
-           VALUES (?,?,?,?,?,?,?,?,?)""",
+        """INSERT INTO poc_entries (mentor_name, intern, use_case, primary_users, expected_roi, production_level, github_link, features, function, url)
+           VALUES (?,?,?,?,?,?,?,?,?,?)""",
         (
             entry.get("Mentor Name"),
             entry.get("Intern"),
@@ -123,6 +125,7 @@ def add_poc_entry(entry):
             entry.get("GitHub Link"),
             entry.get("Features"),
             entry.get("Function"),
+            entry.get("URL"),
         ),
     )
     conn.commit()
@@ -160,8 +163,8 @@ def delete_poc_entry(entry_id):
 def add_poc_entry_multi(entry):
     """Insert a new PoC entry allowing duplicate interns."""
     cursor.execute(
-        """INSERT INTO poc_entries_multi (mentor_name, intern, use_case, primary_users, expected_roi, production_level, github_link, features, function)
-           VALUES (?,?,?,?,?,?,?,?,?)""",
+        """INSERT INTO poc_entries_multi (mentor_name, intern, use_case, primary_users, expected_roi, production_level, github_link, features, function, url)
+           VALUES (?,?,?,?,?,?,?,?,?,?)""",
         (
             entry.get("Mentor Name"),
             entry.get("Intern"),
@@ -172,6 +175,7 @@ def add_poc_entry_multi(entry):
             entry.get("GitHub Link"),
             entry.get("Features"),
             entry.get("Function"),
+            entry.get("URL"),
         ),
     )
     conn.commit()
@@ -196,5 +200,7 @@ add_column_if_missing("poc_entries", "production_level", "TEXT")
 add_column_if_missing("poc_entries", "github_link", "TEXT")
 add_column_if_missing("poc_entries", "features", "TEXT")
 add_column_if_missing("poc_entries", "function", "TEXT")
+add_column_if_missing("poc_entries", "url", "TEXT")
 add_column_if_missing("poc_entries_multi", "features", "TEXT")
 add_column_if_missing("poc_entries_multi", "function", "TEXT")
+add_column_if_missing("poc_entries_multi", "url", "TEXT")
