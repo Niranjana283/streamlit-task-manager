@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 from io import BytesIO
-from database import add_poc_entry_multi, get_all_poc_entries_multi, delete_poc_entry_multi_by_intern
+from database import add_poc_entry, get_all_poc_entries, delete_poc_entry, update_poc_entry
 
 # -------------------------------------------------
 # PoC (Proof of Concept) entry page
@@ -11,7 +11,7 @@ st.set_page_config(page_title="PoC Entries", page_icon="💡", layout="wide")
 # Initialise the DataFrame in session state if not present
 if "poc_table" not in st.session_state:
     # Load persisted entries from the multi‑entry table (or start empty)
-    df = get_all_poc_entries_multi()
+    df = get_all_poc_entries()
     if not df.empty:
         df = df.rename(columns={
             "mentor_name": "Mentor Name",
@@ -51,58 +51,113 @@ st.write(
 # -------------------------------------------------------------------
 # Form to add a new row
 # -------------------------------------------------------------------
-with st.form("poc_form"):
-    mentor = st.text_input("Mentor Name")
-    # Intern selection – dropdown of existing interns with option to add new
-    existing_interns = list(st.session_state["poc_table"]["Intern"].unique()) if "poc_table" in st.session_state else []
-    intern_options = ["<Add new>"] + existing_interns
-    intern_choice = st.selectbox("Intern", intern_options)
-    if intern_choice == "<Add new>":
-        intern = st.text_input("Intern (new)")
-    else:
-        intern = intern_choice
-    use_case = st.text_input("Use Case")
-    primary_users = st.text_input("Primary Users")
-    expected_roi = st.text_input("Expected ROI")
-    production_level = st.text_input("Production Level")
-    github_link = st.text_input("GitHub Link")
-    features = st.text_input("Features")
-    function = st.text_input("Function")
-    url = st.text_input("URL")
-    submitted = st.form_submit_button("Add Entry")
+@st.dialog("Edit PoC Entry")
+def edit_poc_dialog(row):
+    with st.form(f"edit_poc_form_{row['id']}"):
+        mentor = st.text_input("Mentor Name", value=row.get("Mentor Name", ""))
+        intern = st.text_input("Intern", value=row.get("Intern", ""))
+        use_case = st.text_input("Use Case", value=row.get("Use Case", ""))
+        primary_users = st.text_input("Primary Users", value=row.get("Primary Users", ""))
+        expected_roi = st.text_input("Expected ROI", value=row.get("Expected ROI", ""))
+        production_level = st.text_input("Production Level", value=row.get("Production Level", ""))
+        github_link = st.text_input("GitHub Link", value=row.get("GitHub Link", ""))
+        features = st.text_input("Features", value=row.get("Features", ""))
+        function = st.text_input("Function", value=row.get("Function", ""))
+        url = st.text_input("URL", value=row.get("URL", ""))
+        submitted = st.form_submit_button("Save Changes")
 
-    if submitted:
-        # Prepare new row data
-        new_row = {
-            "Mentor Name": mentor,
-            "Intern": intern,
-            "Use Case": use_case,
-            "Primary Users": primary_users,
-            "Expected ROI": expected_roi,
-            "Production Level": production_level,
-            "GitHub Link": github_link,
-            "Features": features,
-            "Function": function,
-            "URL": url,
-        }
-        # Persist the new entry in the database (allows duplicate interns)
-        add_poc_entry_multi(new_row)
-        # Refresh the session table from the DB and rename columns for UI
-        df = get_all_poc_entries_multi()
-        df = df.rename(columns={
-            "mentor_name": "Mentor Name",
-            "intern": "Intern",
-            "use_case": "Use Case",
-            "primary_users": "Primary Users",
-            "expected_roi": "Expected ROI",
-            "production_level": "Production Level",
-            "github_link": "GitHub Link",
-            "features": "Features",
-            "function": "Function",
-            "url": "URL",
-        })
-        st.session_state["poc_table"] = df
-        st.success("Entry added!")
+        if submitted:
+            updated_row = {
+                "Mentor Name": mentor,
+                "Intern": intern,
+                "Use Case": use_case,
+                "Primary Users": primary_users,
+                "Expected ROI": expected_roi,
+                "Production Level": production_level,
+                "GitHub Link": github_link,
+                "Features": features,
+                "Function": function,
+                "URL": url,
+            }
+            update_poc_entry(row["id"], updated_row)
+            df = get_all_poc_entries()
+            df = df.rename(columns={
+                "mentor_name": "Mentor Name",
+                "intern": "Intern",
+                "use_case": "Use Case",
+                "primary_users": "Primary Users",
+                "expected_roi": "Expected ROI",
+                "production_level": "Production Level",
+                "github_link": "GitHub Link",
+                "features": "Features",
+                "function": "Function",
+                "url": "URL",
+            })
+            st.session_state["poc_table"] = df
+            st.success("Entry updated!")
+            st.rerun()
+
+# -------------------------------------------------------------------
+# Form to add a new row
+# -------------------------------------------------------------------
+@st.dialog("Add PoC Entry")
+def add_poc_dialog():
+    with st.form("poc_form"):
+        mentor = st.text_input("Mentor Name")
+        # Intern selection – dropdown of existing interns with option to add new
+        existing_interns = list(st.session_state["poc_table"]["Intern"].unique()) if "poc_table" in st.session_state else []
+        intern_options = ["<Add new>"] + existing_interns
+        intern_choice = st.selectbox("Intern", intern_options)
+        if intern_choice == "<Add new>":
+            intern = st.text_input("Intern (new)")
+        else:
+            intern = intern_choice
+        use_case = st.text_input("Use Case")
+        primary_users = st.text_input("Primary Users")
+        expected_roi = st.text_input("Expected ROI")
+        production_level = st.text_input("Production Level")
+        github_link = st.text_input("GitHub Link")
+        features = st.text_input("Features")
+        function = st.text_input("Function")
+        url = st.text_input("URL")
+        submitted = st.form_submit_button("Add Entry")
+
+        if submitted:
+            # Prepare new row data
+            new_row = {
+                "Mentor Name": mentor,
+                "Intern": intern,
+                "Use Case": use_case,
+                "Primary Users": primary_users,
+                "Expected ROI": expected_roi,
+                "Production Level": production_level,
+                "GitHub Link": github_link,
+                "Features": features,
+                "Function": function,
+                "URL": url,
+            }
+            # Persist the new entry in the database (allows duplicate interns)
+            add_poc_entry(new_row)
+            # Refresh the session table from the DB and rename columns for UI
+            df = get_all_poc_entries()
+            df = df.rename(columns={
+                "mentor_name": "Mentor Name",
+                "intern": "Intern",
+                "use_case": "Use Case",
+                "primary_users": "Primary Users",
+                "expected_roi": "Expected ROI",
+                "production_level": "Production Level",
+                "github_link": "GitHub Link",
+                "features": "Features",
+                "function": "Function",
+                "url": "URL",
+            })
+            st.session_state["poc_table"] = df
+            st.success("Entry added!")
+            st.rerun()
+
+if st.button("➕ Add PoC"):
+    add_poc_dialog()
 
 # -------------------------------------------------------------------
 # Display the table (spreadsheet‑like view)
@@ -111,18 +166,21 @@ st.subheader("Current PoC Entries")
 if st.session_state["poc_table"].empty:
     st.info("No entries yet. Add one using the form above.")
 else:
-    # Show each entry with an individual delete button
+    # Show each entry with an individual edit and delete button
     for idx, row in st.session_state["poc_table"].iterrows():
-        cols = st.columns([8, 1])
+        cols = st.columns([8, 1, 1])
         with cols[0]:
             # Display the row as a single‑row DataFrame for nice formatting
             st.write(row.to_frame().T)
         with cols[1]:
-            if st.button("🗑️", key=f"delete_{idx}"):
-                # Delete the selected intern
-                delete_poc_entry_multi_by_intern(row["Intern"])
+            if st.button("✏️ Edit", key=f"edit_{idx}"):
+                edit_poc_dialog(row)
+        with cols[2]:
+            if st.button("🗑️ Delete", key=f"delete_{idx}"):
+                # Delete the selected entry by its primary key id
+                delete_poc_entry(row["id"])
                 # Reload and update the session table
-                df = get_all_poc_entries_multi()
+                df = get_all_poc_entries()
                 df = df.rename(columns={
                     "mentor_name": "Mentor Name",
                     "intern": "Intern",

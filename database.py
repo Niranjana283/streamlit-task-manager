@@ -75,25 +75,9 @@ add_column_if_missing("users", "id_number", "TEXT")
 add_column_if_missing("tasks", "due_date", "TEXT")
 
 # ================= PO C TABLE =================
+# Ensure PoC table exists without dropping existing data
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS poc_entries (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    mentor_name TEXT,
-    intern TEXT UNIQUE,
-    use_case TEXT,
-    primary_users TEXT,
-    expected_roi TEXT,
-    production_level TEXT,
-    github_link TEXT,
-    features TEXT,
-    function TEXT,
-    url TEXT
-)
-""")
-
-# New table allowing multiple entries per intern (no UNIQUE constraint)
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS poc_entries_multi (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     mentor_name TEXT,
     intern TEXT,
@@ -108,10 +92,11 @@ CREATE TABLE IF NOT EXISTS poc_entries_multi (
 )
 """)
 
+
 # Helper functions for PoC entries
 
 def add_poc_entry(entry):
-    """Insert a new PoC entry into the unique‑intern table (kept for backward compatibility)."""
+    """Insert a new PoC entry into the unique‑intern table."""
     cursor.execute(
         """INSERT INTO poc_entries (mentor_name, intern, use_case, primary_users, expected_roi, production_level, github_link, features, function, url)
            VALUES (?,?,?,?,?,?,?,?,?,?)""",
@@ -154,56 +139,36 @@ def update_poc_entry_by_intern(intern, updated):
     )
     conn.commit()
 
+def update_poc_entry(entry_id, updated):
+    """Update an existing entry identified by `id`."""
+    cursor.execute(
+        """UPDATE poc_entries SET mentor_name = ?, intern = ?, use_case = ?, primary_users = ?, expected_roi = ?, production_level = ?, github_link = ?, features = ?, function = ?, url = ?
+           WHERE id = ?""",
+        (
+            updated.get("Mentor Name"),
+            updated.get("Intern"),
+            updated.get("Use Case"),
+            updated.get("Primary Users"),
+            updated.get("Expected ROI"),
+            updated.get("Production Level"),
+            updated.get("GitHub Link"),
+            updated.get("Features"),
+            updated.get("Function"),
+            updated.get("URL"),
+            entry_id,
+        ),
+    )
+    conn.commit()
+
 def delete_poc_entry(entry_id):
     """Delete a PoC entry by its primary key id."""
     cursor.execute("DELETE FROM poc_entries WHERE id = ?", (entry_id,))
     conn.commit()
 
-# New helpers for the multi‑entry table
-def add_poc_entry_multi(entry):
-    """Insert a new PoC entry allowing duplicate interns."""
-    cursor.execute(
-        """INSERT INTO poc_entries_multi (mentor_name, intern, use_case, primary_users, expected_roi, production_level, github_link, features, function, url)
-           VALUES (?,?,?,?,?,?,?,?,?,?)""",
-        (
-            entry.get("Mentor Name"),
-            entry.get("Intern"),
-            entry.get("Use Case"),
-            entry.get("Primary Users"),
-            entry.get("Expected ROI"),
-            entry.get("Production Level"),
-            entry.get("GitHub Link"),
-            entry.get("Features"),
-            entry.get("Function"),
-            entry.get("URL"),
-        ),
-    )
-    conn.commit()
-
-def get_all_poc_entries_multi():
-    """Return a DataFrame with all entries from the multi‑entry table."""
-    import pandas as pd
-    return pd.read_sql_query("SELECT * FROM poc_entries_multi", conn)
-
-def delete_poc_entry_multi_by_intern(intern):
-    """Delete all PoC entries for a given intern from the multi‑entry table.
-    Handles potential OperationalError gracefully and ensures the provided intern is valid.
-    """
-    if not intern:
-        # Nothing to delete
-        return
-    try:
-        cursor.execute("DELETE FROM poc_entries_multi WHERE intern = ?", (intern,))
-        conn.commit()
-    except Exception as e:
-        # Log the error for debugging; in Streamlit this will appear in the console.
-        print(f"Error deleting PoC entries for intern '{intern}': {e}")
-        # Optionally, re-raise if you want the UI to reflect the failure.
-        raise
-
+# Multi-entry helper functions and migrations removed; using unified poc_entries table
 # Run migration for PoC table columns (if needed)
 add_column_if_missing("poc_entries", "mentor_name", "TEXT")
-add_column_if_missing("poc_entries", "intern", "TEXT UNIQUE")
+add_column_if_missing("poc_entries", "intern", "TEXT")
 add_column_if_missing("poc_entries", "use_case", "TEXT")
 add_column_if_missing("poc_entries", "primary_users", "TEXT")
 add_column_if_missing("poc_entries", "expected_roi", "TEXT")
@@ -212,6 +177,5 @@ add_column_if_missing("poc_entries", "github_link", "TEXT")
 add_column_if_missing("poc_entries", "features", "TEXT")
 add_column_if_missing("poc_entries", "function", "TEXT")
 add_column_if_missing("poc_entries", "url", "TEXT")
-add_column_if_missing("poc_entries_multi", "features", "TEXT")
-add_column_if_missing("poc_entries_multi", "function", "TEXT")
-add_column_if_missing("poc_entries_multi", "url", "TEXT")
+
+
