@@ -96,25 +96,30 @@ CREATE TABLE IF NOT EXISTS poc_entries (
 # Helper functions for PoC entries
 
 def add_poc_entry(entry):
-    """Insert a new PoC entry into the unique‑intern table."""
-    cursor.execute(
-        """INSERT INTO poc_entries (mentor_name, intern, use_case, primary_users, expected_roi, production_level, github_link, features, function, url)
-           VALUES (?,?,?,?,?,?,?,?,?,?)""",
-        (
-            entry.get("Mentor Name"),
-            entry.get("Intern"),
-            entry.get("Use Case"),
-            entry.get("Primary Users"),
-            entry.get("Expected ROI"),
-            entry.get("Production Level"),
-            entry.get("GitHub Link"),
-            entry.get("Features"),
-            entry.get("Function"),
-            entry.get("URL"),
-        ),
-    )
-    conn.commit()
-
+    """Insert a new PoC entry into the poc_entries table.
+    Handles duplicate ``intern`` values gracefully by raising a clear error.
+    """
+    try:
+        cursor.execute(
+            """INSERT INTO poc_entries (mentor_name, intern, use_case, primary_users, expected_roi, production_level, github_link, features, function, url)
+               VALUES (?,?,?,?,?,?,?,?,?,?)""",
+            (
+                entry.get("Mentor Name"),
+                entry.get("Intern"),
+                entry.get("Use Case"),
+                entry.get("Primary Users"),
+                entry.get("Expected ROI"),
+                entry.get("Production Level"),
+                entry.get("GitHub Link"),
+                entry.get("Features"),
+                entry.get("Function"),
+                entry.get("URL"),
+            ),
+        )
+        conn.commit()
+    except sqlite3.IntegrityError as e:
+        # Likely a duplicate ``intern`` entry due to the unique index.
+        raise ValueError(f"Failed to add PoC entry: {e}. Ensure the 'Intern' value is unique.") from e
 def get_all_poc_entries():
     """Return a DataFrame from the unique‑intern table."""
     import pandas as pd
@@ -177,5 +182,46 @@ add_column_if_missing("poc_entries", "github_link", "TEXT")
 add_column_if_missing("poc_entries", "features", "TEXT")
 add_column_if_missing("poc_entries", "function", "TEXT")
 add_column_if_missing("poc_entries", "url", "TEXT")
-
-
+# Ensure duplicate interns are allowed – remove any hidden UNIQUE constraint.
+def _remove_unique_intern_constraint():
+    # Check for any unique index on the intern column
+    cursor.execute("PRAGMA index_list('poc_entries')")
+    indexes = cursor.fetchall()
+    for idx in indexes:
+        idx_name = idx[1]
+        is_unique = idx[2]
+        if is_unique:
+            # Check columns covered by this index
+            cursor.execute(f"PRAGMA index_info('{idx_name}')")
+            cols = [c[2] for c in cursor.fetchall()]
+            if 'intern' in cols:
+                # Need to recreate the table without the UNIQUE constraint
+                cursor.execute("ALTER TABLE poc_entries RENAME TO poc_entries_old")
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS poc_entries (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        mentor_name TEXT,
+                        intern TEXT,
+                        use_case TEXT,
+                        primary_users TEXT,
+                        expected_roi TEXT,
+                        production_level TEXT,
+                        github_link TEXT,
+                        features TEXT,
+                        function TEXT,
+                        url TEXT
+                    )
+                """)
+                cols_str = "id, mentor_name, intern, use_case, primary_users, expected_roi, production_level, github_link, features, function, url"
+                cursor.execute(f"INSERT INTO poc_entries ({cols_str}) SELECT {cols_str} FROM poc_entries_old")
+                conn.commit()
+                cursor.execute("DROP TABLE poc_entries_old")
+                conn.commit()
+                break
+_remove_unique_intern_constraint()
+# Unique index on intern removed to allow duplicate entries.
+try:
+    cursor.execute("DROP INDEX IF EXISTS idx_poc_intern")
+    conn.commit()
+except sqlite3.OperationalError:
+    pass
